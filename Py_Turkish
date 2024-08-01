@@ -1,0 +1,411 @@
+# Çoklu Doğrusal Regresyon ile Ev Kirası Tahminleme: Buca Örneği
+
+**1. Veriseti**
+
+**2. Tanımlayıcı İstatistikler**
+
+    2.1. Bağımlı Değişken
+    2.2. Bağımsız Değişkenler
+        2.2.1. Kategorik Bağımsız Değişkenler
+        2.2.2. Nümerik Bağımsız Değişkenler
+
+**3. Korelasyon Matrisi**
+
+**4. Çoklu Regresyon Modeli**
+
+    4.1. Verilerin Standardizasyonu
+    4.2. Anlamlı Katsayıların Tespiti
+    4.3. R-squared ve Adjusted R-squared Katsayılarının Yorumu
+    4.4. VIF Değerleri
+    
+**5. Model Seçimi**
+
+    5.1. Adımsal Regresyon ile Değişken Seçimi
+    5.2. Etkileşim Etkisi
+    5.3. Normallik Testi
+    5.4. Varyans Homojenliği
+    5.5. Etkin Gözlem ve Uç Değer Kontrolü
+    5.6. VIF Değerleri
+    5.7 Model Katsayıları
+    5.8. Katsayıların Güven Aralığı Kestirimi
+    5.8. Katsayıların Güven Aralığı Kestirimi
+    5.9. Test Verisi için Tahminleme
+    
+**6. Sonuç**
+# Packages
+# 1. Veriseti
+Çoklu doğrusal regresyon analizi için İzmir'in Buca ilçesindeki kiralık evlere ait bilgiler barındıran bir veriseti https://www.hepsiemlak.com/ sitesinden elde edilen verilerle hazırlanmıştır. Verisetinde bulanan verilere dair detaylı açıklamalar ilerleyen satırlarda yapılacaktır.
+
+Verisetine erişim: https://www.kaggle.com/datasets/gokcegok/house-rent-price-prediction-dataset-for-buca
+![image.png](attachment:46d37962-a023-448b-96b9-f47c646bc59e.png)
+df <- read.csv(file = "../input/house-rent-price-prediction-dataset-for-buca/rent_price_dataset_buca.csv")
+Verisetinde location, num_rooms, gross, building_age, floor_type ve furnishing_status olmak üzere 6 adet bağımsız değişken bulunmaktadır:
+
+    Kategorik Veriler:
+
+        1 - location
+
+            Açıklama: Bulunduğu semt
+            Aldığı değerler: merkez, iscievleri, sirinyer
+
+        2 - floor_type
+
+            Açıklama: Bina içindeki konum
+            Aldığı değerler: garden, ground, intermediate, top
+
+        3- furnishing_status
+
+            Açıklama: Eşya durumu
+            Aldığı değerler: 1, 0 (1: Eşyalı, 0: Eşyasız)
+
+    Nümerik Veriler:
+
+        1 - num_rooms
+
+            Açıklama: Oda sayısı
+                      Veriler 2+1, 3+1 yerine 3, 4 şeklinde kaydedilmiştir.
+
+        2 - building_age
+
+            Açıklama: Bina yaşı
+
+        3- gross
+
+            Açıklama: Büyüklük(m2)
+        
+Bağımlı değişken:
+
+    price
+    
+    Açıklama: ev kirası(tl)
+head(df)
+Sütunlar ve içinde bulundurdukları veri tipleri:
+sapply(df, class)
+# 2. Tanımlayıcı istatistikler
+summary(df)
+attach(df)
+**2.1. Bağımlı Değişken**
+hist(price, xlab="Kira", ylab="Frekans", col=rainbow(10), ylim=c(0,80))
+Verinin sağa çarpık dağıldığı görülmektedir. İlk intiba olarak normal dağılmadığını söylemek mümkün. 
+
+Hipotez Testi
+
+H0: Verilerin dağılımı normaldir
+
+H1: Verilerin dağılımı normal değildir
+
+p > alfa ise H0 reddedilemez.
+ad.test(price)
+
+
+p = 4.655e-11, alfa = 0.05
+ 
+
+p < alfa olduğu için H0 reddedilir. Verinin dağılımı normal değildir.
+psych::describe(price)
+Ortalama, ortanca değerden büyük. Demek ki sağdaki büyük bir değer ortalamayı kendine çekmiş.
+**2.2. Bağımsız Değişkenler**
+sapply(df, class)
+**2.2.1. Kategorik Bağımsız Değişkenler**
+location <- as.factor(location)
+summary(location)
+barplot(table(location), xlab="Semt", col=rainbow(3), ylim=c(0,80), ylab="Ev Sayısı")
+boxplot(price~location, data=df)
+floor_type <- as.factor(floor_type)
+summary(floor_type)
+barplot(table(floor_type), xlab="Bulunduğu Kat", col=rainbow(4), ylim=c(0,110), ylab="Ev Sayısı")
+boxplot(price~floor_type, data=df)
+furnishing_status <- as.factor(furnishing_status)
+summary(furnishing_status)
+barplot(table(furnishing_status), xlab="Eşya Durumu", col=rainbow(2), ylim=c(0,100), ylab="Ev Sayısı")
+boxplot(price~furnishing_status, data=df)
+**2.2.2. Nümerik Bağımsız Değişkenler**
+summary(num_rooms)
+
+hist(num_rooms,
+xlab="Oda Sayısı",
+ylab="Frekans",
+col=rainbow(10), ylim=c(0,60))
+boxplot(price~num_rooms, data=df)
+unique(num_rooms)
+summary(gross)
+
+hist(gross,
+xlab="Alan(m2)",
+ylab="Frekans",
+col=rainbow(10))
+boxplot(price~gross, data=df)
+unique(gross)
+summary(building_age)
+
+hist(building_age,
+xlab="Bina Yaşı",
+ylab="Frekans",
+col=rainbow(10), ylim=c(0,50))
+boxplot(price~building_age, data=df)
+Bina yaşının tutulduğu değişken 0 ile 37 arasında değişen değerler almaktadır. Veri setinde ağırlıklı olarak yeni yapılmış binaların bulunduğu görülüyor.
+unique(building_age)
+# 3. Korelasyon Matrisi
+numeric_columns <- unlist(lapply(df, is.numeric))   
+df_numeric <- df[ , numeric_columns]                       
+head(df_numeric)
+cor_matrix <- cor(df_numeric)
+cor_matrix
+corrplot(cor_matrix)
+Evin büyüklüğü ile oda sayısı arasında yüksek bir korelasyon olduğunu görüyoruz. Bu iki değişkeni aynı anda modelde kullanmak çoklu doğrusal bağlantı problemiyle karşılaşmamıza neden olabilir.
+
+Tahminlemeye çalıştığımız "price" değişkeniyle pozitif ve nispeten güçlü korelasyonlu olan bağımsız değişkenler, "gross" ve "num_rooms". Evin eşya durumuyla kira arasında ise daha az güçlü bir pozitif ilişki var.
+
+Bina yaşıyla, kira arasında negatif yönlü az güçlü bir ilişki var.
+pairs(df_numeric, pch = 19, col='orange', lower.panel = NULL)
+**Bu aşamada kategorik veriler için dummy değişkenlerin eklenmesi ilerleyen adımların gerçekleştirilmesi için anlamlı olacaktır.**
+df_dummy <- dummy_cols(df, select_columns = c("location", "floor_type"))
+sapply(df_dummy, class)
+head(df_dummy)
+Verisetine, her bir kategorik değişken için düzey sayısı - 1 kadar yeni sütun eklenmesini istiyoruz. Aynı zamanda kategorik veri bulunduran bu sütunların ilk versiyonlarını da verisetinden kaldırıyoruz:
+df_dummy <- subset(df_dummy, select = -c(location_sirinyer, location, floor_type, floor_type_garden))
+sapply(df_dummy, class)
+head(df_dummy)
+Böylece, toplam bağımsız değişken sayısı 9'a yükselmiştir.
+Daha düzenli bir görünüm için "price" sütunu sonda olacak şekilde sütunların yerlerinin düzenlenmesi:
+df_dummy <- df_dummy[,c(6,7,1,2,3,4,8,9,10,5)]
+head(df_dummy)
+Yeni eklenen sütunlar sebebiyle kategorik verilerin bulunduğu sütunlar tekrar "factor" veri tipine dönüştürülmelidir.
+head(df)
+df_dummy$location_iscievleri <- as.factor(df_dummy$location_iscievleri)
+df_dummy$location_merkez <- as.factor(df_dummy$location_merkez)
+is.factor(df_dummy$location_iscievleri)
+is.factor(df_dummy$location_merkez)
+df_dummy$floor_type_ground <- as.factor(df_dummy$floor_type_ground)
+df_dummy$floor_type_intermediate <- as.factor(df_dummy$floor_type_intermediate)
+df_dummy$floor_type_top <- as.factor(df_dummy$floor_type_top)
+is.factor(df_dummy$floor_type_ground)
+is.factor(df_dummy$floor_type_intermediate)
+is.factor(df_dummy$floor_type_top)
+df_dummy$furnishing_status <- as.factor(df_dummy$furnishing_status)
+is.factor(df_dummy$furnishing_status)
+sapply(df_dummy, class)
+str(df_dummy)
+pairs(df_dummy, pch=19, col='red', lower.panel=NULL)
+pairs(df_dummy[c(4,5,10)], pch=19, col='red', lower.panel=NULL)
+Scatter plotlara bakıldığında bağımlı değişken yalnızca alan ve bina yaşı ile ilişkili olabilir gibi görünüyor.
+# 4. Çoklu Doğrusal Regresyon Modeli
+**4.1. Verilerin Standardizasyonu**
+Daha sonra tahminleme yaparken aynı aralıkta standardize edilmiş olarak kullanabilmek için öncelikle verisetine üç satırdan oluşan bir test verisi ekleyelim:
+# Test Verisi
+test_data <- data.frame(location_iscievleri=c(0,0,1), location_merkez=c(1,0,0), num_rooms=c(2, 3, 2), gross=c(50, 80, 55), building_age=c(7, 26, 0),
+                floor_type_ground=c(0,1,0), floor_type_intermediate=c(1,0,1), floor_type_top=c(0,0,0), furnishing_status=c(1, 0, 1), price=c(4000, 3500, 5500))
+
+test_data$location_iscievleri <- as.factor(test_data$location_iscievleri)
+test_data$location_merkez <- as.factor(test_data$location_merkez)
+test_data$furnishing_status <- as.factor(test_data$furnishing_status)
+test_data$floor_type_ground <- as.factor(test_data$floor_type_ground)
+test_data$floor_type_top <- as.factor(test_data$floor_type_top)
+test_data$floor_type_intermediate <- as.factor(test_data$floor_type_intermediate)
+
+test_data
+train_test = rbind(df_dummy, test_data)
+str(train_test)
+str(train_test)
+summary(train_test[c(3,4,5)])
+df_scaled <- as.data.frame(scale(train_test[c(3,4,5)]))
+scaled_train_test <- cbind(train_test[c(1,2)], df_scaled, train_test[c(6,7,8,9,10)])
+str(scaled_train_test)
+scaled_df <- scaled_train_test[c(0:138),]
+test_df <- scaled_train_test[-c(0:138),]
+**NOT: Denenen tüm modellere ait R-kare ve düzeltilmiş R-kareler raporun ilerleyen kısımlarında bir tabloda gösterilmiştir.**
+model_1 <- lm(formula=price~location_merkez + location_iscievleri + num_rooms + gross + 
+             building_age + floor_type_ground + floor_type_intermediate + floor_type_top +
+             furnishing_status, data=scaled_df)
+
+summary(model_1)
+**Model Geçerliliği - F Testi**
+
+H0: beta1 = beta2 = ... = betan = 0 
+
+H1: En az bir betai != 0
+
+Modelin geçerliliğini test etmek için F-istatistiğine bakıldığında p'nin alfadan küçük olduğu görülür. 
+
+Dolayısıyla H0 reddedilir, yani en az bir tane anlamlı katsayı vardır.
+**4.2. Anlamlı Katsayıların Tespiti**
+Model geçerliliği test edildikten sonra tek tek tüm değişkenler için t istatistiklerine bakarız. Model çıktısında Pr(>|t|) sütununa bakıldığında anlamlı katsayıları tespit etmek oldukça kolaydır.
+
+Bu durumda, **num_rooms, gross, building_age, furnishing_status** parametrelerinin model için anlamlı olduğunu görüyoruz. Yalnızca anlamlı olan bağımsız değişkenlerle kurulan model:
+model_2 <- lm(formula=price ~ num_rooms + gross + 
+             building_age + furnishing_status, data=scaled_df)
+
+summary(model_2)
+**4.3. R-squared ve Adjusted R-squared Katsayılarının Yorumu**
+
+Multiple R-squared:  0.4541,	Adjusted R-squared:  0.4157 
+
+Bu modelle(model_1) verilerin %45.41'i açıklanabiliyor. Adjusted R^2 ile R^2 arasındaki farka da bakıldığında, bu modelin örneklemi açıklamaya yetmediği görülüyor.
+
+2. modelle verilerin %42.46'sı açıklanabiliyor. Adjusted R^2de de düşüş gözleniyor. 1. modelden çıkarılan değişkenlerin de veriyi açıklamakta etkisi olduğu söylenebilir.
+**4.4. VIF Değerleri**
+VIF < 1 ---------------------- Korelasyon yok
+
+1 <= VIF <= 5 -------------- Orta korelasyon 
+
+VIF > 5 ---------------------- Güçlü korelasyon
+vif_values <- vif(model_1)
+vif_values
+barplot(vif_values, main = "VIF Değerleri", col = "red", las=2)
+abline(h = 5, lwd = 3, lty = 2) # VIF = 5
+**"gross", "num_rooms", "floor_type_ground", "floor_type_intermediate"** değişkenlerinde çoklu doğrusal bağlantı sorunu yaşayabileneceği görülüyor. num_rooms ve gross arasındaki korelasyonun yüksek olduğu önceki grafiklerde de gösterilmişti. floor_type_ground ile floor_type_intermediate da aynı kategorik değişkenin düzeyleriydi. Verisetindeki örneklem miktarının az olması bu iki düzey arasında çoklu doğrusal bağlantı sorunu yaratmış olabilir. Bunları göz önünde bulundurarak yeni bir model oluşturalım:
+model_3 <- lm(formula=price ~ gross + floor_type_ground +
+             building_age + furnishing_status, data=scaled_df)
+
+summary(model_3)
+Model 3 ile 2 karşılaştırıldığında düzeltilmiş R-kare'nin arttığı gözlenmiştir. Öyleyse 3. modelin açıklayıcılığının daha yüksek olduğunu söyleyebiliriz.
+Çoklu doğrusal bağlantı sorunu göz önünde bulundurularak 2. modelden num_rooms değişkeni çıkarılırsa:
+model_4 <- lm(formula=price ~ + gross + 
+             building_age + furnishing_status, data=scaled_df)
+
+summary(model_4)
+Karmaşıklığı düşük olduğu için bu koşullarda tahminleme için en uygun olan modelin 3. model olduğu söylenebilir.
+# 5. Model Seçimi
+**5.1. Adımsal Regresyon ile Değişken Seçimi**
+stepwise <- ols_step_both_p(model_1) 
+stepwise <- ols_step_both_p(model_1, pent = 0.05, prem = 0.1)
+stepwise
+model_3$coefficients
+Adımsal regresyon kullanarak değişken seçimi yapıldığında, modele model_3'teki değişkenlerin eklenmesi gerektiği görülüyor. Değişkenlerin karesel, kübik vs. etkisi olup olmadığını görmek için bağımsız değişkenlerle kira arasındaki ilişkiye tekrar bakalım:
+str(scaled_df)
+pairs(scaled_df[c(4, 5, 6, 7, 10)], pch=15, col="red", lower.panel=NULL)
+plot(scaled_df$gross, scaled_df$price,xlab = "Büyüklük(m2)", ylab = "Kira(tl)") ##serpme diyagramı
+Öncelikle gross değişkeninin karesini modele ekleyelim:
+gross2 <- scaled_df$gross ^ 2
+model_5 <- lm(formula=price ~ gross + gross2 + floor_type_ground +
+             building_age + furnishing_status, data=scaled_df)
+
+summary(model_5)
+Düzeltilmiş R-kare model_3'te 0.4179'du. gross değişkeni için karesel terimin eklenmesiyle 0.4066'ya düştüğünü görüyoruz. Bu da eklediğimiz değişkenin modeli açıklamak konusunda etkisiz olduğunu gösteriyor.
+plot(scaled_df$building_age,scaled_df$price,xlab = "Bina Yaşı", ylab = "Kira(tl)") ##serpme diyagramı
+building_age değişkeninin karesel teriminin modele eklenmesi:
+building_age2 <- scaled_df$building_age ^ 2
+model_6 <- lm(formula=price ~ gross + floor_type_ground +
+             building_age + building_age2 + furnishing_status, data=scaled_df)
+
+summary(model_6)
+Eklediğimiz karesel terimle hem R-karenin hem de düzeltilmiş R-karenin arttığını görüyoruz. Bina yaşı değişkeninin karesel terimiyle elde edilen eğrisel regresyon denkleminin veriyi açıklamak için daha anlamlı sonuçlar ürettiği görülüyor.
+**5.2. Etkileşim Etkisi**
+plot(scaled_df$building_age, scaled_df$gross, xlab = "Bina Yaşı", ylab = "Büyüklük(m2)")
+model_7 <- lm(formula = price ~ gross + floor_type_ground +
+             building_age + building_age2 + furnishing_status +
+             gross * building_age, data=scaled_df)
+
+summary(model_7)
+![image.png](attachment:cdce1bfe-e931-4f61-bb16-22b856001ff6.png)
+Oluşturulan eğrisel modele, bina yaşı ile büyüklük arasındaki etkileşim etkisini katınca:
+* Intercept de diğer katsayılar da değişiyor.
+* Düzeltilmiş R-kare artıyor.
+* Diğer tüm modellerle karşılaştırıldığında en yüksek düzeltilmiş R-karenin elde edildiği görülüyor.
+
+**Böylece, final modelin model_7 olmasına karar verilmiştir.**
+model <- model_7
+anova(model)
+**5.3. Normallik Testi**
+Hipotez Testi
+
+H0: Verilerin dağılımı normaldir
+
+H1: Verilerin dağılımı normal değildir
+
+p > alfa ise H0 reddedilemez.
+par(mfrow=c(1,2))
+hist(model$residuals)
+shapiro.test(model$residuals)
+p < alfa: H0 reddedilir. Hatalar normal dağılmamıştır.
+**5.4. Varyans Homojenliği**
+Hipotez Testi
+
+H0: Hatalar sabit varyanslıdır.
+
+H1: Hatalar sabit varyanslı değildir.
+
+p > alfa ise H0 reddedilemez.
+bptest(model)
+p > alfa: H0 reddedilemez. Hatalar sabit varyanslıdır.
+plot(model$fitted.values,model$residuals)
+Bu grafikten modelde bir artan varyans sorunu olduğu çıkarımı yapılmıştır.
+**5.5. Etkin Gözlem ve Uç Değer Kontrolü**
+hatvalues(model)
+which(hatvalues(model)>2*mean(hatvalues(model)))
+mse <- sum(model$residuals ^ 2) / model$df
+mse
+st_res <- model$residuals / ((mse * (1 - hatvalues(model))) ^ 0.5)
+st_res
+stand_res <- model$residuals / mse ^ 0.5
+stand_res
+which(hatvalues(model)>2*mean(hatvalues(model)))
+which(abs(stand_res) > 2)
+par(mfrow=c(2,2))
+plot(model)
+Normal Q-Q grafiğine baktığımızda dağılımın aykırı gözlemler hariç normal olduğunu söyleyebiliriz.
+plot(hatvalues(model), stand_res)
+abline(h=c(-2,2), v=4/35)
+identify(hatvalues(model), stand_res)
+identify(hatvalues(model), stand_res)
+Potansiyel Uç Değerler: **26  77 130 133**
+
+Kaldıraç Noktaları: **38  53  81 107 111 121 132**
+
+Kaldıraç noktalarının tamamının iyi olduğunu görüyoruz. Uç değerlerden 26 ve 133 potansiyel uç değerlerken 77 ve 133 kesinlikle uç değer olarak tanımlanabilir.
+**Cook's Distance**
+par(mfrow=c(1,1))
+plot(scaled_df$price,cooks.distance(model))
+abline(h=4/(length(scaled_df$price)-2))
+identify(scaled_df$price,cooks.distance(model)) ##grafikte görmek istediğiniz noktaların üzerini tıklayın, en son ESC tuşuna basın.
+#st_res[c(4,13,35)] -- üsttekiler
+**Olası uç değerler: 77  91 125 130**
+77 ve 130. gözlemler kesinlikle uç değer.
+**Uç Değerlerin Çıkarılması & Modellerin Karşılaştırılması**
+scaled_df.cleaned <- scaled_df[-c(77,130),]
+model_8 <- lm(scaled_df.cleaned$price ~ scaled_df.cleaned$gross + scaled_df.cleaned$floor_type_ground +
+                scaled_df.cleaned$building_age + scaled_df.cleaned$building_age * scaled_df.cleaned$building_age + scaled_df.cleaned$furnishing_status +
+                scaled_df.cleaned$gross * scaled_df.cleaned$building_age)
+summary(model_8)
+summary(model_7)
+Modelde iyileşme olmadı.
+**5.6. VIF Değerleri**
+vif(model)
+barplot(vif(model), main = "VIF Değerleri", col = "red", las=2)
+abline(h = 5, lwd = 3, lty = 2) # VIF = 5
+Seçilen modelde çoklu doğrusal bağlantı sorunu yoktur.
+**5.7. Model Katsayıları**
+model$coefficients
+* Model doğrusunun y eksenini kestiği nokta 5130.91'dir.
+* Evin büyüklüğü ile kirası arasında pozitif bir ilişki vardır: Büyüklük 1 birim arttığında, kira 1163.16 artar.
+* floor_type_ground adlı dummy değişken ile kira arasında negatif yönlü bir ilişki vardır: floor_type_ground 1 birim arttığında, kira 685.09 birim azalır.
+* Bina yaşı ile ile kira arasında negatif yönlü bir ilişki vardır: Bina yaşı 1 birim arttığında kira 735.99 birim azalır.
+* Eşya durumu 1 birim arttığında, kira 1317.36 birim artar. Eşya durumu 0 ya da 1 değerlerini aldığına göre elimizdeki modele göre, diğer tüm öznitelikleri aynı olan iki evden eşyalı olanın kirası ile eşyasız olanın kirası arasında 1317 tllik fark olacağını söyleyebiliriz.
+**5.8. Katsayıların Güven Aralığı Kestirimi**
+confint(model)
+Modelin verdiği katsayılar çok geniş bir aralıkta değer alabiliyorlar. Bu yüzden aslında kestirim yapmak için uygun bir model değil.
+
+%95 güven aralığında diğer tüm etkenler sabit tutulduğunda ev kirası 4708.20 ile 5553.62 tl arasında değerler alacaktır.
+
+%95 güven aralığında diğer tüm katsayılar sabit tutulduğunda evin m2 cinsinden büyüklüğü 1 birim arttığında ev kirası 878.42 tl ile 1447.90 tl arasında artış gösterecektir.
+
+Diğer değişkenler için de yukarıda verilen tablodaki değerler kullanılarak benzer yorumlar yapılabilir.
+**5.9. Test Verisi için Tahminleme**
+head(scaled_df)
+rownames(test_df) <- c(1,2,3)
+test_df
+colnames(test_df) <- colnames(scaled_df)
+model_7 <- lm(formula = price ~ gross + floor_type_ground +
+             building_age + building_age2 + furnishing_status +
+             gross * building_age, data=scaled_df)
+
+summary(model_7)
+predict(model_7, newdata=test_df[c(-10)])
+conf_interval <- predict(model_7, newdata=test_data, interval="confidence", level = 0.95)
+pred_interval=predict(model,new,interval="prediction", level=0.95)
+# 6. Sonuç
+Verisetini bir çoklu doğrusal regresyon modeliyle açıklamak üzere öncelikle kategorik veriler için dummy değişkenler oluşturulmuştur. Her bir kategorik değişken için düzey sayısının bir eksiği kadar dummy değişken veri setine eklenmiştir. 
+
+Yapılan analizler neticesinde verisetini açıklayabilecek en iyi model kestirilmeye çalışılmıştır. Finalde 6 değişkenden oluşan eğrisel bir regresyon modeli elde edilmiştir. Elde edilen model verinin %46.75'ini açıklamaktadır.
+
+Modelin açıklayıcılığını arttırmak için örneklem sayısının artması gerektiği düşünülmektedir. Kullanılan veri gerçek hayat verisi olduğu için mevcut durumda yüksek doğruluklu bir modelleme yapmak mümkün olmamıştır.
